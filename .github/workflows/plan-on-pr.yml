@@ -1,0 +1,93 @@
+name: Plan / Test On PR
+
+on:
+  pull_request: # This is the main workflow event triggered by PULL REQUEST */
+    branches:
+      - main
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3  # checks out the code of the branch you are making the PR from 
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1 # installs Terraform on the VM using hashicorp/setup-terraform 
+        with:
+          terraform_version: 1.0.9
+
+      - name: Run terraform fmt check
+        run: terraform fmt -check -diff -recursive ./terraform  # check if the code is formatted correctly or not 
+
+  # execute the command once for each of our three environments (root modules) 
+  # dev, stage, and prod. We then want to capture the output of the command and put it into the PR comments for review.
+  plan: 
+    name: Plan 
+    env: # setting an environment variable and fed into our root modules allowed_account_id variable  
+      TF_VAR_allowed_account_id: ${{ secrets.ALLOWED_ACCOUNT_ID }}
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false # not cancel any other in-progress jobs 
+      matrix: # The matrix strategy is being used so that we create three distinct jobs from one job definition. 
+        path:
+          - dev
+          - stage
+          - prod
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.0.9
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1-node16
+        with: #  set the appropriate AWS environment variables 
+          aws-region: us-east-1
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Initialize Terraform
+        run: | # running some shell script to initialize Terraform  (Terraform to know this is non-interactive  NO human input )
+          cd terraform/${{ matrix.path }}
+          terraform init -input=false  
+
+      - name: Plan Terraform
+        id: plan # This is a reference
+        continue-on-error: true # To see why the plan may have failed ( select a different working directory depending on which environment the job is running for )
+        run: |
+          cd terraform/${{ matrix.path }} 
+          terraform plan -input=false -no-color -out=tfplan \
+          && terraform show -no-color tfplan
+
+      # Sed is taking all lines that begin with one or more spaces followed by a `+` or `-`.
+      # It stores the amount of spaces in `\1` and the +/- in `\2`.
+      # Then replace that portion of the line with `\2\1` (+/- followed by the number of matched spaces).
+      - name: Reformat Plan
+        run: |
+          echo '${{ steps.plan.outputs.stdout || steps.plan.outputs.stderr }}' \
+          | sed -E 's/^([[:space:]]+)([-+])/\2\1/g' > plan.txt
+
+      - name: Put Plan in Env Var
+        run: |
+          PLAN=$(cat plan.txt)
+          echo "PLAN<<EOF" >> $GITHUB_ENV
+          echo "$PLAN" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Post Plan to GitHub PR
+        uses: mshick/add-pr-comment@v1
+        with:
+          allow-repeats: true
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token-user-login: 'github-actions[bot]'
+          message: |
+            ## ${{ matrix.path }} plan
+            ```diff
+            ${{ env.PLAN }}
+            ```
