@@ -49,10 +49,10 @@ jobs: # Jobs create individual “runners”
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1-node16
         with:
-          role-to-assume: arn:aws:iam::413645677990:oidc-provider/token.actions.githubusercontent.com
+          # role-to-assume: arn:aws:iam::413645677990:oidc-provider/token.actions.githubusercontent.com
           aws-region: ca-central-1
-          #aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          #aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Initialize Terraform
         run: |
