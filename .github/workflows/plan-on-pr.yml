@@ -71,7 +71,7 @@ jobs:
       - name: Reformat Plan
         run: |
           echo '${{ steps.plan.outputs.stdout || steps.plan.outputs.stderr }}' \
-          | sed -E 's/^([[:space:]]+)([-+])/\2\1/g' > plan.txt
+          | > plan.txt
 
       - name: Put Plan in Env Var
         run: |
