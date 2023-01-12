@@ -16,7 +16,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v1 # installs Terraform on the VM using hashicorp/setup-terraform 
         with:
-          terraform_version: 1.0.9
+          terraform_version: 1.1.7
 
       - name: Run terraform fmt check
         run: terraform fmt -check -diff -recursive ./terraform  # check if the code is formatted correctly or not 
@@ -43,7 +43,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v1
         with:
-          terraform_version: 1.0.9
+          terraform_version: 1.1.7
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1-node16
@@ -71,7 +71,7 @@ jobs:
       - name: Reformat Plan
         run: |
           echo '${{ steps.plan.outputs.stdout || steps.plan.outputs.stderr }}' \
-          | sed -E 's/^([[:space:]]+)([-+])/\2\1/g' > plan.txt
+          | > plan.txt
 
       - name: Put Plan in Env Var
         run: |
